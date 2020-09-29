@@ -19,7 +19,7 @@ type Lock struct {
 
 // New returns a new lock around the given file.
 func New(filename string) *Lock {
-	return &Lock{filename: filename}
+	return &Lock{filename: filename, fd: -1}
 }
 
 // Lock locks the lock.  This call will block until the lock is available.
@@ -57,6 +57,10 @@ func (l *Lock) open() error {
 
 // Unlock unlocks the lock.
 func (l *Lock) Unlock() error {
+	// -1 represents that failed to open the file
+	if l.fd == -1 {
+		return nil
+	}
 	return syscall.Close(l.fd)
 }
 
