@@ -47,7 +47,7 @@ func (l *Lock) TryLock() error {
 }
 
 func (l *Lock) open() error {
-	fd, err := syscall.Open(l.filename, syscall.O_CREAT|syscall.O_RDONLY, 0600)
+	fd, err := syscall.Open(l.filename, syscall.O_CREAT|syscall.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}
