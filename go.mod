@@ -1,4 +1,4 @@
-module github.com/dolthub/fslock/go
+module github.com/dolthub/fslock
 
 go 1.13
 
