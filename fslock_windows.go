@@ -4,24 +4,14 @@
 package fslock
 
 import (
+	"golang.org/x/sys/windows"
 	"log"
 	"syscall"
 	"time"
-	"unsafe"
-)
-
-var (
-	modkernel32      = syscall.NewLazyDLL("kernel32.dll")
-	procLockFileEx   = modkernel32.NewProc("LockFileEx")
-	procCreateEventW = modkernel32.NewProc("CreateEventW")
-)
-
-const (
-	lockfileExclusiveLock = 2
-	fileFlagNormal        = 0x00000080
 )
 
 func init() {
+
 	log.SetFlags(log.Lmicroseconds | log.Ldate)
 }
 
@@ -29,7 +19,7 @@ func init() {
 // This implementation is based on LockFileEx syscall.
 type Lock struct {
 	filename string
-	handle   syscall.Handle
+	handle   windows.Handle
 }
 
 // New returns a new lock around the given file.
@@ -55,13 +45,13 @@ func (l *Lock) Lock() error {
 
 // Unlock unlocks the lock.
 func (l *Lock) Unlock() error {
-	return syscall.Close(l.handle)
+	return windows.Close(l.handle)
 }
 
 // LockWithTimeout tries to lock the lock until the timeout expires.  If the
 // timeout expires, this method will return ErrTimeout.
 func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
-	name, err := syscall.UTF16PtrFromString(l.filename)
+	name, err := windows.UTF16PtrFromString(l.filename)
 	if err != nil {
 		return err
 	}
@@ -69,13 +59,13 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
 	// Open for asynchronous I/O so that we can timeout waiting for the lock.
 	// Also open shared so that other processes can open the file (but will
 	// still need to lock it).
-	handle, err := syscall.CreateFile(
+	handle, err := windows.CreateFile(
 		name,
-		syscall.GENERIC_READ,
-		syscall.FILE_SHARE_READ,
+		windows.GENERIC_READ,
+		windows.FILE_SHARE_READ,
 		nil,
-		syscall.OPEN_ALWAYS,
-		syscall.FILE_FLAG_OVERLAPPED|fileFlagNormal,
+		windows.OPEN_ALWAYS,
+		windows.FILE_FLAG_OVERLAPPED|windows.FILE_ATTRIBUTE_NORMAL,
 		0)
 	if err != nil {
 		return err
@@ -83,11 +73,11 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
 	l.handle = handle
 	defer func() {
 		if err != nil {
-			syscall.Close(handle)
+			windows.Close(handle)
 		}
 	}()
 
-	millis := uint32(syscall.INFINITE)
+	millis := uint32(windows.INFINITE)
 	if timeout >= 0 {
 		millis = uint32(timeout.Nanoseconds() / 1000000)
 	}
@@ -96,18 +86,18 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
 	if err != nil {
 		return err
 	}
-	defer syscall.CloseHandle(ol.HEvent)
-	err = lockFileEx(handle, lockfileExclusiveLock, 0, 1, 0, ol)
+	defer windows.CloseHandle(ol.HEvent)
+	err = windows.LockFileEx(handle, windows.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, ol)
 	if err == nil {
 		return nil
 	}
 
 	// ERROR_IO_PENDING is expected when we're waiting on an asychronous event
 	// to occur.
-	if err != syscall.ERROR_IO_PENDING {
+	if err != windows.ERROR_IO_PENDING {
 		return err
 	}
-	s, err := syscall.WaitForSingleObject(ol.HEvent, millis)
+	s, err := windows.WaitForSingleObject(ol.HEvent, millis)
 
 	switch s {
 	case syscall.WAIT_OBJECT_0:
@@ -122,44 +112,12 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
 
 // newOverlapped creates a structure used to track asynchronous
 // I/O requests that have been issued.
-func newOverlapped() (*syscall.Overlapped, error) {
-	event, err := createEvent(nil, true, false, nil)
+func newOverlapped() (*windows.Overlapped, error) {
+	manualReset := uint32(1)
+	initialState := uint32(0)
+	event, err := windows.CreateEvent(nil, manualReset, initialState, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &syscall.Overlapped{HEvent: event}, nil
-}
-
-func lockFileEx(h syscall.Handle, flags, reserved, locklow, lockhigh uint32, ol *syscall.Overlapped) (err error) {
-	r1, _, e1 := syscall.Syscall6(procLockFileEx.Addr(), 6, uintptr(h), uintptr(flags), uintptr(reserved), uintptr(locklow), uintptr(lockhigh), uintptr(unsafe.Pointer(ol)))
-	if r1 == 0 {
-		if e1 != 0 {
-			err = error(e1)
-		} else {
-			err = syscall.EINVAL
-		}
-	}
-	return
-}
-
-func createEvent(sa *syscall.SecurityAttributes, manualReset bool, initialState bool, name *uint16) (handle syscall.Handle, err error) {
-	var _p0 uint32
-	if manualReset {
-		_p0 = 1
-	}
-	var _p1 uint32
-	if initialState {
-		_p1 = 1
-	}
-
-	r0, _, e1 := syscall.Syscall6(procCreateEventW.Addr(), 4, uintptr(unsafe.Pointer(sa)), uintptr(_p0), uintptr(_p1), uintptr(unsafe.Pointer(name)), 0, 0)
-	handle = syscall.Handle(r0)
-	if handle == syscall.InvalidHandle {
-		if e1 != 0 {
-			err = error(e1)
-		} else {
-			err = syscall.EINVAL
-		}
-	}
-	return
+	return &windows.Overlapped{HEvent: event}, nil
 }
