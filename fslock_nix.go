@@ -1,6 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the LGPLv3, see LICENCE file for details.
 
+//go:build darwin || dragonfly || freebsd || linux || netbsd || openbsd
 // +build darwin dragonfly freebsd linux netbsd openbsd
 
 package fslock
@@ -39,6 +40,8 @@ func (l *Lock) TryLock() error {
 	err := syscall.Flock(l.fd, syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
 		syscall.Close(l.fd)
+	} else {
+		syscall.CloseOnExec(l.fd)
 	}
 	if err == syscall.EWOULDBLOCK {
 		return ErrLocked

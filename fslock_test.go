@@ -16,7 +16,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/dolthub/fslock"
+	"github.com/appaegis-lib/fslock"
 )
 
 func Test(t *testing.T) {
