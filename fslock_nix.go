@@ -40,6 +40,8 @@ func (l *Lock) TryLock() error {
 	err := syscall.Flock(l.fd, syscall.LOCK_EX|syscall.LOCK_NB)
 	if err != nil {
 		syscall.Close(l.fd)
+	} else {
+		syscall.CloseOnExec(l.fd)
 	}
 	if err == syscall.EWOULDBLOCK {
 		return ErrLocked
@@ -48,7 +50,7 @@ func (l *Lock) TryLock() error {
 }
 
 func (l *Lock) open() error {
-	fd, err := syscall.Open(l.filename, syscall.O_CREAT|syscall.O_RDONLY, 0600)
+	fd, err := syscall.Open(l.filename, syscall.O_CREAT|syscall.O_RDWR, 0600)
 	if err != nil {
 		return err
 	}

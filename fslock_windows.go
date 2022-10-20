@@ -50,7 +50,7 @@ func (l *Lock) Unlock() error {
 
 // LockWithTimeout tries to lock the lock until the timeout expires.  If the
 // timeout expires, this method will return ErrTimeout.
-func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
+func (l *Lock) LockWithTimeout(timeout time.Duration) (oerr error) {
 	name, err := windows.UTF16PtrFromString(l.filename)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) (err error) {
 	}
 	l.handle = handle
 	defer func() {
-		if err != nil {
+		if oerr != nil {
 			windows.Close(handle)
 		}
 	}()
