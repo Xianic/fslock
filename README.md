@@ -1,5 +1,5 @@
 
-# fslock [![GoDoc](https://pkg.go.dev/badge/github.com/xianic/fslock?status.svg)](https://pkg.go.dev/github.com/juju/fslock)
+# fslock [![GoDoc](https://pkg.go.dev/badge/github.com/xianic/fslock?status.svg)](https://pkg.go.dev/github.com/xianic/fslock)
 fslock provides a cross-process mutex based on file locks that works on windows and *nix platforms.
 
 
