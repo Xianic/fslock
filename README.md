@@ -1,5 +1,5 @@
 
-# fslock [![GoDoc](https://godoc.org/github.com/juju/fslock?status.svg)](https://godoc.org/github.com/juju/fslock)
+# fslock [![GoDoc](https://pkg.go.dev/badge/github.com/xianic/fslock?status.svg)](https://pkg.go.dev/github.com/juju/fslock)
 fslock provides a cross-process mutex based on file locks that works on windows and *nix platforms.
 
 
@@ -9,11 +9,11 @@ fslock provides a cross-process mutex based on file locks that works on windows 
 (don't ask)
 </sub></sup>
 
-fslock relies on LockFileEx on Windows and flock on \*nix systems.  The timeout 
+fslock relies on LockFileEx on Windows and flock on \*nix systems. The timeout
 feature uses overlapped IO on Windows, but on \*nix platforms, timing out
 requires the use of a goroutine that will run until the lock is acquired,
 regardless of timeout.  If you need to avoid this use of goroutines, poll
-TryLock in a loop. 
+TryLock in a loop.
 
 
 
