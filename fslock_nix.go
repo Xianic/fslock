@@ -7,6 +7,7 @@
 package fslock
 
 import (
+	"context"
 	"syscall"
 	"time"
 )
@@ -70,15 +71,29 @@ func (l *Lock) Unlock() error {
 // LockWithTimeout tries to lock the lock until the timeout expires.  If the
 // timeout expires, this method will return ErrTimeout.
 func (l *Lock) LockWithTimeout(timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	err := l.LockWithContext(ctx)
+	if err != nil && ctx.Err() == err {
+		// To maintain backwards compatibility, this function must return
+		// ErrTimeout when the context expires, not the error produced by the context
+		return ErrTimeout
+	}
+
+	return err
+}
+
+// LockWithContext will wait for the lock until the context is canceled.
+func (l *Lock) LockWithContext(ctx context.Context) error {
 	if err := l.open(); err != nil {
 		return err
 	}
-	result := make(chan error)
-	cancel := make(chan struct{})
+	result := make(chan error, 1)
 	go func() {
 		err := syscall.Flock(l.fd, syscall.LOCK_EX)
 		select {
-		case <-cancel:
+		case <-ctx.Done():
 			// Timed out, cleanup if necessary.
 			syscall.Flock(l.fd, syscall.LOCK_UN)
 			syscall.Close(l.fd)
@@ -88,8 +103,7 @@ func (l *Lock) LockWithTimeout(timeout time.Duration) error {
 	select {
 	case err := <-result:
 		return err
-	case <-time.After(timeout):
-		close(cancel)
-		return ErrTimeout
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
